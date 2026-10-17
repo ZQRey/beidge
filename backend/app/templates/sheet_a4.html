@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Печатный лист А4</title>
+
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm 15mm;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .sheet-page {
+      width: 180mm;
+      min-height: 277mm;
+      margin: 0 auto;
+      page-break-after: always;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 3mm;
+    }
+    .sheet-page:last-child {
+      page-break-after: avoid;
+    }
+
+    /* Print header info */
+    .sheet-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 5pt;
+      color: #94a3b8;
+      border-bottom: 0.5px solid #e2e8f0;
+      padding-bottom: 1mm;
+      margin-bottom: 1mm;
+    }
+
+    /* Badge item wrapper with crop marks */
+    .badge-wrapper {
+      position: relative;
+      width: 180mm;
+      height: 60mm;
+      margin: 0 auto;
+    }
+
+    /* Crop marks corners */
+    .crop-mark {
+      position: absolute;
+      pointer-events: none;
+      z-index: 100;
+    }
+    .crop-top-left {
+      top: -3mm;
+      left: -3mm;
+      width: 6mm;
+      height: 6mm;
+      border-right: 0.5px solid #64748b;
+      border-bottom: 0.5px solid #64748b;
+    }
+    .crop-top-right {
+      top: -3mm;
+      right: -3mm;
+      width: 6mm;
+      height: 6mm;
+      border-left: 0.5px solid #64748b;
+      border-bottom: 0.5px solid #64748b;
+    }
+    .crop-bottom-left {
+      bottom: -3mm;
+      left: -3mm;
+      width: 6mm;
+      height: 6mm;
+      border-right: 0.5px solid #64748b;
+      border-top: 0.5px solid #64748b;
+    }
+    .crop-bottom-right {
+      bottom: -3mm;
+      right: -3mm;
+      width: 6mm;
+      height: 6mm;
+      border-left: 0.5px solid #64748b;
+      border-top: 0.5px solid #64748b;
+    }
+
+    /* Embedded Badge Elements */
+    .folded-badge-container {
+      width: 180mm;
+      height: 60mm;
+      display: flex;
+      position: relative;
+      background: #ffffff;
+      border: 0.6mm solid #1e5d36;
+      overflow: hidden;
+    }
+    .badge-half {
+      width: 90mm;
+      height: 60mm;
+      position: relative;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .fold-divider {
+      position: absolute;
+      left: 90mm;
+      top: 0;
+      bottom: 0;
+      width: 0;
+      border-right: 0.8px dashed #94a3b8;
+      z-index: 50;
+    }
+    .fold-label {
+      position: absolute;
+      left: 90mm;
+      top: 1mm;
+      transform: translateX(-50%);
+      font-size: 4pt;
+      color: #94a3b8;
+      background: #ffffff;
+      padding: 0 1mm;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      z-index: 51;
+    }
+
+    /* Background diagonal sash SVG */
+    .bg-sash {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Top bilingual hospital header */
+    .badge-header {
+      position: relative;
+      z-index: 10;
+      padding-top: 3.5mm;
+      padding-left: 2mm;
+      padding-right: 2mm;
+      text-align: center;
+    }
+    .badge-header .header-kz {
+      font-size: 6.8pt;
+      font-weight: 500;
+      color: #000000;
+      line-height: 1.25;
+      letter-spacing: -0.1px;
+    }
+    .badge-header .header-ru {
+      font-size: 6.8pt;
+      font-weight: 500;
+      color: #000000;
+      line-height: 1.25;
+      letter-spacing: -0.1px;
+    }
+
+    /* Main body layout */
+    .badge-body {
+      position: relative;
+      z-index: 10;
+      height: calc(60mm - 12mm);
+      display: flex;
+      align-items: center;
+      padding: 0 4mm 2mm 2.5mm;
+    }
+
+    /* Left Logo container */
+    .logo-box {
+      width: 33mm;
+      height: 33mm;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .hospital-logo-svg {
+      width: 29.5mm;
+      height: 29.5mm;
+      filter: drop-shadow(0 0.5px 1px rgba(0,0,0,0.06));
+    }
+
+    /* Right dynamic employee details */
+    .info-box {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding-left: 1mm;
+      padding-right: 1mm;
+    }
+
+    .employee-name {
+      font-weight: 700;
+      color: #000000;
+      line-height: 1.16;
+      letter-spacing: -0.2px;
+      margin-bottom: 2mm;
+      word-break: break-word;
+    }
+    .employee-name span {
+      display: block;
+    }
+
+    .divider-line {
+      width: 36mm;
+      height: 0.55mm;
+      background-color: #1e5d36;
+      margin-bottom: 2.2mm;
+      border-radius: 0.5px;
+    }
+
+    .employee-position {
+      font-weight: 400;
+      color: #000000;
+      line-height: 1.25;
+      text-transform: lowercase;
+    }
+    .employee-position span {
+      display: block;
+    }
+
+    .employee-department {
+      margin-top: 1.2mm;
+      font-weight: 500;
+      color: #475569;
+      font-size: 7.2pt;
+      line-height: 1.2;
+    }
+
+    /* Back styling */
+    .back-wrapper {
+      padding: 1.5mm 2.5mm 1.5mm 2.5mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+    }
+    .back-title {
+      text-align: center;
+      font-size: 8.5pt;
+      font-weight: 900;
+      color: #0f172a;
+      letter-spacing: 0.6px;
+      margin-bottom: 1.2mm;
+      text-transform: uppercase;
+    }
+    .table-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2mm;
+    }
+    .code-row {
+      display: flex;
+      align-items: stretch;
+      min-height: 9mm;
+      border-radius: 1.5px;
+      overflow: hidden;
+    }
+    .code-badge {
+      width: 25.5mm;
+      flex-shrink: 0;
+      padding: 1.2mm 1mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+    .code-name {
+      font-size: 6.8pt;
+      font-weight: 900;
+      letter-spacing: 0.3px;
+      line-height: 1.1;
+      text-transform: uppercase;
+    }
+    .code-desc {
+      font-size: 4.1pt;
+      font-weight: 700;
+      line-height: 1.05;
+      margin-top: 0.4mm;
+      text-transform: uppercase;
+    }
+    .code-instruction {
+      flex: 1;
+      padding: 1.2mm 1.8mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      font-size: 4.8pt;
+      font-weight: 700;
+      line-height: 1.22;
+      text-transform: uppercase;
+    }
+    .row-white {
+      border: 0.8px solid #cbd5e1;
+      background: #ffffff;
+    }
+    .row-white .code-badge {
+      background: #f8fafc;
+      border-right: 0.8px solid #cbd5e1;
+      color: #0f172a;
+    }
+    .row-white .code-instruction {
+      color: #0f172a;
+      background: #ffffff;
+    }
+    .row-red {
+      background: #e3342f;
+      color: #ffffff;
+    }
+    .row-red .code-badge {
+      background: #cb2d28;
+      border-right: 0.8px solid rgba(255,255,255,0.25);
+    }
+    .row-red .code-instruction {
+      background: #e3342f;
+    }
+    .row-blue {
+      background: #2563eb;
+      color: #ffffff;
+    }
+    .row-blue .code-badge {
+      background: #1d4ed8;
+      border-right: 0.8px solid rgba(255,255,255,0.25);
+    }
+    .row-blue .code-instruction {
+      background: #2563eb;
+      font-size: 4.5pt;
+      line-height: 1.18;
+    }
+    .row-yellow {
+      background: #f59e0b;
+      color: #111827;
+    }
+    .row-yellow .code-badge {
+      background: #d97706;
+      color: #ffffff;
+      border-right: 0.8px solid rgba(0,0,0,0.1);
+    }
+    .row-yellow .code-instruction {
+      background: #f59e0b;
+      color: #111827;
+      font-weight: 800;
+    }
+    .row-black {
+      background: #1f2937;
+      color: #ffffff;
+    }
+    .row-black .code-badge {
+      background: #111827;
+      border-right: 0.8px solid rgba(255,255,255,0.2);
+    }
+    .row-black .code-instruction {
+      background: #1f2937;
+    }
+    .tel-list {
+      display: flex;
+      flex-direction: column;
+    }
+  </style>
+</head>
+<body>
+  {% for page in pages %}
+  <div class="sheet-page">
+    <div class="sheet-meta">
+      <span>КГП на ПХВ «Многопрофильная больница г. Темиртау» — Лист печати бейджей</span>
+      <span>Стр. {{ loop.index }} из {{ pages|length }} ({{ page|length }} шт.)</span>
+    </div>
+
+    {% for badge in page %}
+    <div class="badge-wrapper">
+      {% if include_crop_marks %}
+      <div class="crop-mark crop-top-left"></div>
+      <div class="crop-mark crop-top-right"></div>
+      <div class="crop-mark crop-bottom-left"></div>
+      <div class="crop-mark crop-bottom-right"></div>
+      {% endif %}
+
+      <div class="folded-badge-container">
+        <div class="fold-divider"></div>
+
+        <!-- FACE -->
+        <div class="badge-half">
+          <!-- SVG Vector Diagonal Ribbon Background -->
+          <svg class="bg-sash" viewBox="0 0 900 600" fill="none" preserveAspectRatio="none">
+            <defs>
+              <clipPath id="cardClip_{{ badge.id }}">
+                <rect x="0" y="0" width="900" height="600" />
+              </clipPath>
+              <linearGradient id="limeGrad_{{ badge.id }}" x1="0%" y1="100%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#76b834" />
+                <stop offset="50%" stop-color="#8bc34a" />
+                <stop offset="100%" stop-color="#97cc52" />
+              </linearGradient>
+            </defs>
+
+            <g clip-path="url(#cardClip_{{ badge.id }})">
+              <polygon points="-90,600 -75,600 185,0 170,0" fill="#1e5d36" />
+              <polygon points="-55,600 -25,600 235,0 205,0" fill="#417c4e" />
+              <polygon points="-25,600 150,600 385,0 235,0" fill="url(#limeGrad_{{ badge.id }})" />
+              <polygon points="150,600 180,600 415,0 385,0" fill="#417c4e" />
+              <polygon points="195,600 210,600 440,0 425,0" fill="#1e5d36" />
+            </g>
+          </svg>
+
+          <!-- Top Bilingual Header -->
+          <div class="badge-header">
+            <div class="header-kz">ШЖҚ «Теміртау қаласының көп бейінді ауруханасы» КМК</div>
+            <div class="header-ru">КГП на ПХВ «Многопрофильная больница г. Темиртау»</div>
+          </div>
+
+          <!-- Main Content Area -->
+          <div class="badge-body">
+            <!-- Left: Circular Official Hospital Seal Emblem -->
+            <div class="logo-box">
+              <svg class="hospital-logo-svg" viewBox="0 0 300 300" fill="none">
+                <defs>
+                  <linearGradient id="cLight_{{ badge.id }}" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#d4e157" />
+                    <stop offset="50%" stop-color="#8bc34a" />
+                    <stop offset="100%" stop-color="#4caf50" />
+                  </linearGradient>
+                  <linearGradient id="cDark_{{ badge.id }}" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#43a047" />
+                    <stop offset="100%" stop-color="#1b5e20" />
+                  </linearGradient>
+
+                  <path id="archL_{{ badge.id }}" d="M 45,190 A 118,118 0 0,1 170,36" fill="none" />
+                  <path id="archR_{{ badge.id }}" d="M 180,36 A 118,118 0 0,1 262,185" fill="none" />
+                </defs>
+
+                <circle cx="150" cy="150" r="140" fill="#ffffff" stroke="#1e5d36" stroke-width="4.2" />
+
+                <text font-family="'Montserrat', sans-serif" font-size="13.5" font-weight="700" fill="#1e5d36" letter-spacing="3.6">
+                  <textPath href="#archL_{{ badge.id }}" startOffset="50%" text-anchor="middle">
+                    МНОГОПРОФИЛЬНАЯ
+                  </textPath>
+                </text>
+                <text font-family="'Montserrat', sans-serif" font-size="13.5" font-weight="700" fill="#1e5d36" letter-spacing="4.0">
+                  <textPath href="#archR_{{ badge.id }}" startOffset="50%" text-anchor="middle">
+                    БОЛЬНИЦА
+                  </textPath>
+                </text>
+
+                <g transform="translate(150, 134)">
+                  <path
+                    d="M -2,-34 C 8,-34 10,-26 10,-20 L 10,-8 C 10,0 4,4 -2,8 L -18,18 C -22,18 -32,14 -32,4 L -32,-10 C -32,-16 -24,-20 -18,-20 L -6,-20 C 0,-20 -2,-26 -2,-34 Z"
+                    fill="url(#cLight_{{ badge.id }})"
+                  />
+                  <path
+                    d="M 2,34 C -8,34 -10,26 -10,20 L -10,8 C -10,0 -4,-4 2,-8 L 18,-18 C 22,-18 32,-14 32,-4 L 32,10 C 32,16 24,20 18,20 L 6,20 C 0,20 2,26 2,34 Z"
+                    fill="url(#cDark_{{ badge.id }})"
+                  />
+                </g>
+
+                <text x="150" y="222" text-anchor="middle" font-family="'Montserrat', sans-serif" font-size="24" font-weight="900" fill="#1e5d36" letter-spacing="1.5">МБ</text>
+                <text x="150" y="244" text-anchor="middle" font-family="'Montserrat', sans-serif" font-size="11" font-weight="700" fill="#1e5d36" letter-spacing="3.0">ТЕМИРТАУ</text>
+              </svg>
+            </div>
+
+            <!-- Right: Dynamic Employee Info -->
+            <div class="info-box">
+              <div class="employee-name" style="font-size: {{ badge.name_font_size|default('13.5pt') }};">
+                {% if badge.name_lines %}
+                  {% for line in badge.name_lines %}
+                    <span>{{ line }}</span>
+                  {% endfor %}
+                {% else %}
+                  <span>{{ badge.full_name }}</span>
+                {% endif %}
+              </div>
+
+              <div class="divider-line"></div>
+
+              <div class="employee-position" style="font-size: {{ badge.pos_font_size|default('10.2pt') }};">
+                {% if badge.pos_lines %}
+                  {% for pline in badge.pos_lines %}
+                    <span>{{ pline }}</span>
+                  {% endfor %}
+                {% else %}
+                  <span>{{ badge.position }}</span>
+                {% endif %}
+              </div>
+
+              {% if badge.department_name %}
+              <div class="employee-department">{{ badge.department_name }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- BACK -->
+        <div class="badge-half">
+          <div class="back-wrapper">
+            <div class="back-title">КОДЫ ПО БЕЗОПАСНОСТИ</div>
+            <div class="table-container">
+              <div class="code-row row-white">
+                <div class="code-badge">
+                  <div class="code-name">БЕЛЫЙ</div>
+                  <div class="code-desc">Агрессивный пациент или посетитель</div>
+                </div>
+                <div class="code-instruction">
+                  <div>Охранная служба вн. связь - рация</div>
+                  <div style="display: flex; gap: 2mm;">
+                    <span>Сообщить диспетчеру:</span>
+                    <div class="tel-list">
+                      <span>8 (701) 961 77 26</span>
+                      <span>8 (707) 755 12 41, 8 (707) 755 12 38</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="code-row row-red">
+                <div class="code-badge">
+                  <div class="code-name">КРАСНЫЙ</div>
+                  <div class="code-desc">Пожар</div>
+                </div>
+                <div class="code-instruction">
+                  <div>Начальник АХЧ: <strong>8 (702) 584 99 94</strong></div>
+                  <div style="margin-top: 0.3mm;">ТУШИТЬ - ЭВАКУИРОВАТЬ</div>
+                </div>
+              </div>
+              <div class="code-row row-blue">
+                <div class="code-badge">
+                  <div class="code-name">СИНИЙ</div>
+                  <div class="code-desc">Оказание неотложной мед. помощи</div>
+                </div>
+                <div class="code-instruction">
+                  <div>Оценить состояние, активировать «Код Синий», кнопки вызова реанимации, вн. тел. <strong>8 (7212) 98-24-49</strong></div>
+                </div>
+              </div>
+              <div class="code-row row-yellow">
+                <div class="code-badge">
+                  <div class="code-name">ЖЕЛТЫЙ</div>
+                  <div class="code-desc">Разлитие химических веществ</div>
+                </div>
+                <div class="code-instruction">
+                  <div>Оценить ситуацию, активировать «Код Желтый» вн. тел. <strong>8 (702) 142 16 51</strong></div>
+                </div>
+              </div>
+              <div class="code-row row-black">
+                <div class="code-badge">
+                  <div class="code-name">ЧЕРНЫЙ</div>
+                  <div class="code-desc">Угроза террористического акта</div>
+                </div>
+                <div class="code-instruction">
+                  <div>Сообщить старшему менеджеру безопасности (диспетчеру): <strong>8 (702) 769 44 90</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</body>
+</html>

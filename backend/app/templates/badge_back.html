@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Оборотная сторона: Коды по безопасности</title>
+
+  <style>
+    @page {
+      size: 90mm 60mm;
+      margin: 0;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .badge-card {
+      width: 90mm;
+      height: 60mm;
+      position: relative;
+      overflow: hidden;
+      background: #ffffff;
+      padding: 1.5mm 2.5mm 1.5mm 2.5mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .title {
+      text-align: center;
+      font-size: 8.5pt;
+      font-weight: 900;
+      color: #0f172a;
+      letter-spacing: 0.6px;
+      margin-bottom: 1.2mm;
+      text-transform: uppercase;
+    }
+
+    .table-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2mm;
+    }
+
+    .code-row {
+      display: flex;
+      align-items: stretch;
+      min-height: 9mm;
+      border-radius: 1.5px;
+      overflow: hidden;
+      box-shadow: 0 0.5px 1px rgba(0,0,0,0.05);
+    }
+
+    /* Left badge indicator */
+    .code-badge {
+      width: 25.5mm;
+      flex-shrink: 0;
+      padding: 1.2mm 1mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+    .code-name {
+      font-size: 6.8pt;
+      font-weight: 900;
+      letter-spacing: 0.3px;
+      line-height: 1.1;
+      text-transform: uppercase;
+    }
+    .code-desc {
+      font-size: 4.1pt;
+      font-weight: 700;
+      line-height: 1.05;
+      margin-top: 0.4mm;
+      text-transform: uppercase;
+    }
+
+    /* Right instruction details */
+    .code-instruction {
+      flex: 1;
+      padding: 1.2mm 1.8mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      font-size: 4.8pt;
+      font-weight: 700;
+      line-height: 1.22;
+      text-transform: uppercase;
+    }
+
+    /* Code 1: White */
+    .row-white {
+      border: 0.8px solid #cbd5e1;
+      background: #ffffff;
+    }
+    .row-white .code-badge {
+      background: #f8fafc;
+      border-right: 0.8px solid #cbd5e1;
+      color: #0f172a;
+    }
+    .row-white .code-instruction {
+      color: #0f172a;
+      background: #ffffff;
+    }
+
+    /* Code 2: Red */
+    .row-red {
+      background: #e3342f;
+      color: #ffffff;
+    }
+    .row-red .code-badge {
+      background: #cb2d28;
+      border-right: 0.8px solid rgba(255,255,255,0.25);
+    }
+    .row-red .code-instruction {
+      background: #e3342f;
+    }
+
+    /* Code 3: Blue */
+    .row-blue {
+      background: #2563eb;
+      color: #ffffff;
+    }
+    .row-blue .code-badge {
+      background: #1d4ed8;
+      border-right: 0.8px solid rgba(255,255,255,0.25);
+    }
+    .row-blue .code-instruction {
+      background: #2563eb;
+      font-size: 4.5pt;
+      line-height: 1.18;
+    }
+
+    /* Code 4: Yellow */
+    .row-yellow {
+      background: #f59e0b;
+      color: #111827;
+    }
+    .row-yellow .code-badge {
+      background: #d97706;
+      color: #ffffff;
+      border-right: 0.8px solid rgba(0,0,0,0.1);
+    }
+    .row-yellow .code-instruction {
+      background: #f59e0b;
+      color: #111827;
+      font-weight: 800;
+    }
+
+    /* Code 5: Black */
+    .row-black {
+      background: #1f2937;
+      color: #ffffff;
+    }
+    .row-black .code-badge {
+      background: #111827;
+      border-right: 0.8px solid rgba(255,255,255,0.2);
+    }
+    .row-black .code-instruction {
+      background: #1f2937;
+    }
+
+    .tel-list {
+      display: flex;
+      flex-direction: column;
+    }
+  </style>
+</head>
+<body>
+  <div class="badge-card">
+    <div class="title">КОДЫ ПО БЕЗОПАСНОСТИ</div>
+
+    <div class="table-container">
+      <!-- 1. БЕЛЫЙ -->
+      <div class="code-row row-white">
+        <div class="code-badge">
+          <div class="code-name">БЕЛЫЙ</div>
+          <div class="code-desc">Агрессивный пациент или посетитель</div>
+        </div>
+        <div class="code-instruction">
+          <div>{{ safety_codes.white_extra|default('Охранная служба вн. связь - рация') }}</div>
+          <div style="display: flex; gap: 2mm;">
+            <span>Сообщить диспетчеру:</span>
+            <div class="tel-list">
+              <strong>{{ safety_codes.white_phones|default('8 (701) 961 77 26, 8 (707) 755 12 41, 8 (707) 755 12 38') }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. КРАСНЫЙ -->
+      <div class="code-row row-red">
+        <div class="code-badge">
+          <div class="code-name">КРАСНЫЙ</div>
+          <div class="code-desc">Пожар</div>
+        </div>
+        <div class="code-instruction">
+          <div>Начальник АХЧ: <strong>{{ safety_codes.red_phone|default('8 (702) 584 99 94') }}</strong></div>
+          <div style="letter-spacing: 0.4px; margin-top: 0.3mm;">{{ safety_codes.red_extra|default('ТУШИТЬ - ЭВАКУИРОВАТЬ') }}</div>
+        </div>
+      </div>
+
+      <!-- 3. СИНИЙ -->
+      <div class="code-row row-blue">
+        <div class="code-badge">
+          <div class="code-name">СИНИЙ</div>
+          <div class="code-desc">Оказание неотложной мед. помощи</div>
+        </div>
+        <div class="code-instruction">
+          <div>{{ safety_codes.blue_extra|default('Оценить состояние пострадавшего, активировать «Код Синий»') }}</div>
+          <div style="margin-top: 0.3mm;">Реанимация, вн. тел.: <strong>{{ safety_codes.blue_phone|default('8 (7212) 98-24-49') }}</strong></div>
+        </div>
+      </div>
+
+      <!-- 4. ЖЕЛТЫЙ -->
+      <div class="code-row row-yellow">
+        <div class="code-badge">
+          <div class="code-name">ЖЕЛТЫЙ</div>
+          <div class="code-desc">Разлитие хим. веществ</div>
+        </div>
+        <div class="code-instruction">
+          <div>{{ safety_codes.yellow_extra|default('Оценить ситуацию, активировать «Код Желтый»') }}</div>
+          <div style="margin-top: 0.3mm;">Вн. тел.: <strong>{{ safety_codes.yellow_phone|default('8 (702) 142 16 51') }}</strong></div>
+        </div>
+      </div>
+
+      <!-- 5. ЧЕРНЫЙ -->
+      <div class="code-row row-black">
+        <div class="code-badge">
+          <div class="code-name">ЧЕРНЫЙ</div>
+          <div class="code-desc">Угроза теракта</div>
+        </div>
+        <div class="code-instruction">
+          <div>{{ safety_codes.black_extra|default('Сообщить старшему менеджеру безопасности (диспетчеру)') }}</div>
+          <div style="margin-top: 0.3mm;">Тел.: <strong>{{ safety_codes.black_phone|default('8 (702) 769 44 90') }}</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

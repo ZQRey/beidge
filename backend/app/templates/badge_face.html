@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="kk-KZ">
+<head>
+  <meta charset="UTF-8">
+  <title>Лицевая сторона бейджа</title>
+  <style>
+    @page {
+      size: 90mm 60mm;
+      margin: 0;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .badge-card {
+      width: 90mm;
+      height: 60mm;
+      position: relative;
+      overflow: hidden;
+      background: #ffffff;
+      border: 0.6mm solid #1e5d36;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Background diagonal sash SVG */
+    .bg-sash {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Top bilingual hospital header */
+    .badge-header {
+      position: relative;
+      z-index: 10;
+      padding-top: 3.5mm;
+      padding-left: 2mm;
+      padding-right: 2mm;
+      text-align: center;
+    }
+    .badge-header .header-kz {
+      font-size: 6.8pt;
+      font-weight: 500;
+      color: #000000;
+      line-height: 1.25;
+      letter-spacing: -0.1px;
+    }
+    .badge-header .header-ru {
+      font-size: 6.8pt;
+      font-weight: 500;
+      color: #000000;
+      line-height: 1.25;
+      letter-spacing: -0.1px;
+    }
+
+    /* Main body layout */
+    .badge-body {
+      position: relative;
+      z-index: 10;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      padding: 0 4mm 2mm 2.5mm;
+    }
+
+    /* Left Logo container */
+    .logo-box {
+      width: 33mm;
+      height: 33mm;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .hospital-logo-svg {
+      width: 29.5mm;
+      height: 29.5mm;
+      filter: drop-shadow(0 0.5px 1px rgba(0,0,0,0.06));
+    }
+
+    /* Right dynamic employee details */
+    .info-box {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding-left: 1mm;
+      padding-right: 1mm;
+    }
+
+    .employee-name {
+      font-weight: 700;
+      color: #000000;
+      line-height: 1.16;
+      letter-spacing: -0.2px;
+      font-size: {{ name_font_size|default('13.5pt') }};
+      margin-bottom: 2mm;
+      word-break: break-word;
+    }
+    .employee-name span {
+      display: block;
+    }
+
+    .divider-line {
+      width: 36mm;
+      height: 0.55mm;
+      background-color: #1e5d36;
+      margin-bottom: 2.2mm;
+      border-radius: 0.5px;
+    }
+
+    .employee-position {
+      font-weight: 400;
+      color: #000000;
+      font-size: {{ pos_font_size|default('10.2pt') }};
+      line-height: 1.25;
+      text-transform: lowercase;
+    }
+    .employee-position span {
+      display: block;
+    }
+
+    .employee-department {
+      margin-top: 1.2mm;
+      font-weight: 500;
+      color: #475569;
+      font-size: 7.2pt;
+      line-height: 1.2;
+    }
+  </style>
+</head>
+<body>
+  <div class="badge-card">
+    <!-- SVG Vector Diagonal Ribbon Background (Calibrated matching Image 2) -->
+    <svg class="bg-sash" viewBox="0 0 900 600" fill="none" preserveAspectRatio="none">
+      <defs>
+        <clipPath id="cardClip">
+          <rect x="0" y="0" width="900" height="600" />
+        </clipPath>
+        <linearGradient id="limeRibbonGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#76b834" />
+          <stop offset="50%" stop-color="#8bc34a" />
+          <stop offset="100%" stop-color="#97cc52" />
+        </linearGradient>
+      </defs>
+
+      <g clip-path="url(#cardClip)">
+        <!-- 1. Left Outer Dark Green Stripe -->
+        <polygon points="-90,600 -75,600 185,0 170,0" fill="#1e5d36" />
+        <!-- 2. Left Medium Green Stripe -->
+        <polygon points="-55,600 -25,600 235,0 205,0" fill="#417c4e" />
+        <!-- 3. Main Wide Lime Ribbon -->
+        <polygon points="-25,600 150,600 385,0 235,0" fill="url(#limeRibbonGrad)" />
+        <!-- 4. Right Medium Green Stripe -->
+        <polygon points="150,600 180,600 415,0 385,0" fill="#417c4e" />
+        <!-- 5. Right Outer Dark Green Stripe -->
+        <polygon points="195,600 210,600 440,0 425,0" fill="#1e5d36" />
+      </g>
+    </svg>
+
+    <!-- Top Bilingual Header -->
+    <div class="badge-header">
+      <div class="header-kz">ШЖҚ «Теміртау қаласының көп бейінді ауруханасы» КМК</div>
+      <div class="header-ru">КГП на ПХВ «Многопрофильная больница г. Темиртау»</div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="badge-body">
+      <!-- Left: Circular Official Hospital Seal Emblem -->
+      <div class="logo-box">
+        <svg class="hospital-logo-svg" viewBox="0 0 300 300" fill="none">
+          <defs>
+            <linearGradient id="crossLightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#d4e157" />
+              <stop offset="50%" stop-color="#8bc34a" />
+              <stop offset="100%" stop-color="#4caf50" />
+            </linearGradient>
+            <linearGradient id="crossDarkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#43a047" />
+              <stop offset="100%" stop-color="#1b5e20" />
+            </linearGradient>
+
+            <path id="archLeft" d="M 45,190 A 118,118 0 0,1 170,36" fill="none" />
+            <path id="archRight" d="M 180,36 A 118,118 0 0,1 262,185" fill="none" />
+          </defs>
+
+          <!-- White Circle Base -->
+          <circle cx="150" cy="150" r="140" fill="#ffffff" stroke="#1e5d36" stroke-width="4.2" />
+
+          <!-- Circular Inscription: МНОГОПРОФИЛЬНАЯ БОЛЬНИЦА -->
+          <text font-family="'Montserrat', sans-serif" font-size="13.5" font-weight="700" fill="#1e5d36" letter-spacing="3.6">
+            <textPath href="#archLeft" startOffset="50%" text-anchor="middle">
+              МНОГОПРОФИЛЬНАЯ
+            </textPath>
+          </text>
+          <text font-family="'Montserrat', sans-serif" font-size="13.5" font-weight="700" fill="#1e5d36" letter-spacing="4.0">
+            <textPath href="#archRight" startOffset="50%" text-anchor="middle">
+              БОЛЬНИЦА
+            </textPath>
+          </text>
+
+          <!-- Central Stylized Dynamic Cross (Two curved leaf swooshes) -->
+          <g transform="translate(150, 134)">
+            <path
+              d="M -2,-34 C 8,-34 10,-26 10,-20 L 10,-8 C 10,0 4,4 -2,8 L -18,18 C -22,18 -32,14 -32,4 L -32,-10 C -32,-16 -24,-20 -18,-20 L -6,-20 C 0,-20 -2,-26 -2,-34 Z"
+              fill="url(#crossLightGrad)"
+            />
+            <path
+              d="M 2,34 C -8,34 -10,26 -10,20 L -10,8 C -10,0 -4,-4 2,-8 L 18,-18 C 22,-18 32,-14 32,-4 L 32,10 C 32,16 24,20 18,20 L 6,20 C 0,20 2,26 2,34 Z"
+              fill="url(#crossDarkGrad)"
+            />
+          </g>
+
+          <!-- Bottom Text: МБ ТЕМИРТАУ -->
+          <text x="150" y="222" text-anchor="middle" font-family="'Montserrat', sans-serif" font-size="24" font-weight="900" fill="#1e5d36" letter-spacing="1.5">МБ</text>
+          <text x="150" y="244" text-anchor="middle" font-family="'Montserrat', sans-serif" font-size="11" font-weight="700" fill="#1e5d36" letter-spacing="3.0">ТЕМИРТАУ</text>
+        </svg>
+      </div>
+
+      <!-- Right: Dynamic Employee Info -->
+      <div class="info-box">
+        <div class="employee-name">
+          {% if name_lines %}
+            {% for line in name_lines %}
+              <span>{{ line }}</span>
+            {% endfor %}
+          {% else %}
+            <span>{{ full_name }}</span>
+          {% endif %}
+        </div>
+
+        <div class="divider-line"></div>
+
+        <div class="employee-position">
+          {% if pos_lines %}
+            {% for pline in pos_lines %}
+              <span>{{ pline }}</span>
+            {% endfor %}
+          {% else %}
+            <span>{{ position }}</span>
+          {% endif %}
+        </div>
+
+        {% if department_name %}
+        <div class="employee-department">
+          {{ department_name }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</body>
+</html>

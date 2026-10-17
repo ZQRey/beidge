@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: hospital_badges_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-hospital_badges}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-hospital_badges}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hospital_badges_backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-hospital_badges}
+      PROJECT_NAME: "Hospital Badge Generator - МБ Темиртау"
+      GLPI_BASE_URL: ${GLPI_BASE_URL:-https://glpi.gp1.loc/apirest.php}
+      GLPI_APP_TOKEN: ${GLPI_APP_TOKEN:-kM9xT2qL8wV5yZ1pB7nR4sA3dE6fH0jC}
+      GLPI_USER_TOKEN: ${GLPI_USER_TOKEN:-aa21379b71949f2e2735cf966b22a67fd81aae12}
+      GLPI_LOGIN: ${GLPI_LOGIN:-Telegram}
+      GLPI_PASSWORD: ${GLPI_PASSWORD:-}
+      GLPI_SERVICE_USER_ID: ${GLPI_SERVICE_USER_ID:-10}
+      GLPI_WEB_URL: ${GLPI_WEB_URL:-https://glpi.gp1.loc}
+      HELPER_RESOLVER_URL: ${HELPER_RESOLVER_URL:-http://172.16.16.61/api/internal/resolve-client}
+    volumes:
+      - ./backend/data/storage:/app/data/storage
+    expose:
+      - "8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hospital_badges_frontend
+    restart: always
+    depends_on:
+      - backend
+    expose:
+      - "80"
+
+  nginx:
+    image: nginx:alpine
+    container_name: hospital_badges_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  pg_data:
