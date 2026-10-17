@@ -79,3 +79,35 @@ export interface BatchImportResult {
   error_count: number;
   errors: string[];
 }
+
+export interface BatchBadgeItem {
+  full_name: string;
+  position: string;
+  department_name?: string;
+}
+
+export interface BatchBadgeCreateRequest {
+  items: BatchBadgeItem[];
+  background_image?: string;
+  layout_config?: LayoutConfig;
+  safety_codes?: SafetyCodesConfig;
+}
+
+export interface BatchBadgeCreateResponse {
+  batch_id: string;
+  badge_ids: string[];
+  download_url: string;
+  count: number;
+}
+
+export interface BatchSubmitToGlpiResponse {
+  success: boolean;
+  ticket_id?: number;
+  ticket_url?: string;
+  requester?: string;
+  machine?: string;
+  room?: string;
+  count: number;
+  message: string;
+  error?: string;
+}

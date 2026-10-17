@@ -59,6 +59,17 @@ export interface Translations {
     sendToGlpiSuccess: string;
     sendToGlpiOpen: string;
     sendToGlpiRequester: string;
+    batchCountLabel: string;
+    addEmployeeBtn: string;
+    removeEmployeeBtn: string;
+    employeeNumber: string;
+    commonDepartmentLabel: string;
+    applyCommonDept: string;
+    submitBatchBtn: string;
+    sendBatchToGlpiBtn: string;
+    sendBatchToGlpiSuccess: string;
+    a4SheetsEstimate: string;
+    activePreviewEmployee: string;
   };
   background: {
     title: string;

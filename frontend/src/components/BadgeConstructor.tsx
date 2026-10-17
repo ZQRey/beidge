@@ -21,7 +21,17 @@ import {
   ExternalLink,
   Lock,
   Shield,
+  Plus,
+  Trash2,
+  Users,
 } from 'lucide-react';
+
+interface EmployeeFormItem {
+  id: string;
+  fullName: string;
+  position: string;
+  departmentName: string;
+}
 
 interface BadgeConstructorProps {
   departments: Department[];
@@ -116,10 +126,17 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
   // Navigation tab for constructor
   const [activeTab, setActiveTab] = useState<'employee' | 'background' | 'layout' | 'safety'>('employee');
 
-  // Employee details
-  const [fullName, setFullName] = useState('Токтыбаева Аида Салходдиновна');
-  const [position, setPosition] = useState('врач акушер-гинеколог');
-  const [departmentName, setDepartmentName] = useState('Акушерское отделение');
+  // Employees list state (supports 1 to 20 employees)
+  const [employees, setEmployees] = useState<EmployeeFormItem[]>([
+    {
+      id: 'emp-1',
+      fullName: 'Токтыбаева Аида Салходдиновна',
+      position: 'врач акушер-гинеколог',
+      departmentName: 'Акушерское отделение',
+    },
+  ]);
+  const [activePreviewIndex, setActivePreviewIndex] = useState<number>(0);
+  const [commonDept, setCommonDept] = useState<string>('Акушерское отделение');
 
   // Background state
   const [backgroundImage, setBackgroundImage] = useState<string>('/default_badge_bg.png');
@@ -148,16 +165,101 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
   } | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const activeInputRef = useRef<'name' | 'position' | 'dept'>('name');
+  const activeInputRef = useRef<{ index: number; field: 'name' | 'position' | 'dept' }>({
+    index: 0,
+    field: 'name',
+  });
+
+  const activeEmp = employees[activePreviewIndex] || employees[0] || {
+    id: '0',
+    fullName: '',
+    position: '',
+    departmentName: '',
+  };
 
   const insertGlyph = (glyph: string) => {
-    if (activeInputRef.current === 'name') {
-      setFullName(prev => prev + glyph);
-    } else if (activeInputRef.current === 'position') {
-      setPosition(prev => prev + glyph);
-    } else {
-      setDepartmentName(prev => prev + glyph);
+    const { index, field } = activeInputRef.current;
+    setEmployees(prev => {
+      const next = [...prev];
+      const target = next[index] || next[0];
+      if (!target) return prev;
+      if (field === 'name') {
+        next[index] = { ...target, fullName: target.fullName + glyph };
+      } else if (field === 'position') {
+        next[index] = { ...target, position: target.position + glyph };
+      } else {
+        next[index] = { ...target, departmentName: target.departmentName + glyph };
+      }
+      return next;
+    });
+  };
+
+  const updateEmployeeField = (index: number, field: 'fullName' | 'position' | 'departmentName', value: string) => {
+    setEmployees(prev => {
+      const next = [...prev];
+      if (next[index]) {
+        next[index] = { ...next[index], [field]: value };
+      }
+      return next;
+    });
+  };
+
+  const handleSetCount = (count: number) => {
+    const target = Math.min(20, Math.max(1, count));
+    setEmployees(prev => {
+      if (prev.length === target) return prev;
+      if (prev.length < target) {
+        const next = [...prev];
+        const defaultDept = commonDept.trim() || prev[0]?.departmentName || '';
+        for (let i = prev.length; i < target; i++) {
+          next.push({
+            id: `emp-${Date.now()}-${i}`,
+            fullName: '',
+            position: '',
+            departmentName: defaultDept,
+          });
+        }
+        return next;
+      } else {
+        return prev.slice(0, target);
+      }
+    });
+    if (activePreviewIndex >= target) {
+      setActivePreviewIndex(0);
     }
+  };
+
+  const handleAddEmployee = () => {
+    if (employees.length >= 20) return;
+    setEmployees(prev => [
+      ...prev,
+      {
+        id: `emp-${Date.now()}-${prev.length}`,
+        fullName: '',
+        position: '',
+        departmentName: commonDept.trim() || prev[0]?.departmentName || '',
+      },
+    ]);
+  };
+
+  const handleRemoveEmployee = (index: number) => {
+    if (employees.length <= 1) return;
+    setEmployees(prev => prev.filter((_, i) => i !== index));
+    if (activePreviewIndex >= index && activePreviewIndex > 0) {
+      setActivePreviewIndex(prev => prev - 1);
+    }
+  };
+
+  const handleApplyCommonDept = () => {
+    const dept = commonDept.trim();
+    if (!dept) return;
+    setEmployees(prev =>
+      prev.map(e => ({
+        ...e,
+        departmentName: dept,
+      }))
+    );
+    setMessage({ type: 'success', text: `Отделение «${dept}» применено ко всем сотрудникам!` });
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,7 +296,8 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
   };
 
   const handleCreate = async () => {
-    if (!fullName.trim() || !position.trim()) {
+    const invalid = employees.find(e => !e.fullName.trim() || !e.position.trim());
+    if (invalid) {
       setMessage({ type: 'error', text: t.constructor.errorFillRequired });
       return;
     }
@@ -202,18 +305,34 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
     setLoading(true);
     setMessage(null);
     try {
-      const badge = await api.createBadge({
-        full_name: fullName.trim(),
-        position: position.trim(),
-        department_name: departmentName.trim() || undefined,
-        background_image: backgroundImage !== '/default_badge_bg.png' ? backgroundImage : undefined,
-        layout_config: layoutConfig,
-        safety_codes: safetyCodes,
-      });
+      if (employees.length === 1) {
+        const e0 = employees[0];
+        const badge = await api.createBadge({
+          full_name: e0.fullName.trim(),
+          position: e0.position.trim(),
+          department_name: e0.departmentName.trim() || undefined,
+          background_image: backgroundImage !== '/default_badge_bg.png' ? backgroundImage : undefined,
+          layout_config: layoutConfig,
+          safety_codes: safetyCodes,
+        });
 
-      setMessage({ type: 'success', text: t.constructor.successCreated });
-      // Trigger download
-      await api.downloadBadgePdf(badge.id, `badge_${fullName.trim().replace(/\s+/g, '_')}.pdf`);
+        setMessage({ type: 'success', text: t.constructor.successCreated });
+        await api.downloadBadgePdf(badge.id, `badge_${e0.fullName.trim().replace(/\s+/g, '_')}.pdf`);
+      } else {
+        const res = await api.createBatchBadges({
+          items: employees.map(e => ({
+            full_name: e.fullName.trim(),
+            position: e.position.trim(),
+            department_name: e.departmentName.trim() || undefined,
+          })),
+          background_image: backgroundImage !== '/default_badge_bg.png' ? backgroundImage : undefined,
+          layout_config: layoutConfig,
+          safety_codes: safetyCodes,
+        });
+
+        setMessage({ type: 'success', text: `Успешно сформирован лист на ${res.count} бейджей!` });
+        await api.downloadBatchSheet(res.batch_id, `badges_sheet_${res.count}_items.pdf`);
+      }
       onBadgeCreated();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || t.common.error });
@@ -223,7 +342,8 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
   };
 
   const handleSubmitToGlpi = async () => {
-    if (!fullName.trim() || !position.trim()) {
+    const invalid = employees.find(e => !e.fullName.trim() || !e.position.trim());
+    if (invalid) {
       setMessage({ type: 'error', text: t.constructor.errorFillRequired });
       return;
     }
@@ -232,20 +352,50 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
     setMessage(null);
     setGlpiResult(null);
     try {
-      const res = await api.submitToGlpi({
-        full_name: fullName.trim(),
-        position: position.trim(),
-        department_name: departmentName.trim() || undefined,
-        background_image: backgroundImage !== '/default_badge_bg.png' ? backgroundImage : undefined,
-        layout_config: layoutConfig,
-        safety_codes: safetyCodes,
-      });
+      if (employees.length === 1) {
+        const e0 = employees[0];
+        const res = await api.submitToGlpi({
+          full_name: e0.fullName.trim(),
+          position: e0.position.trim(),
+          department_name: e0.departmentName.trim() || undefined,
+          background_image: backgroundImage !== '/default_badge_bg.png' ? backgroundImage : undefined,
+          layout_config: layoutConfig,
+          safety_codes: safetyCodes,
+        });
 
-      setGlpiResult(res);
-      setMessage({
-        type: 'success',
-        text: t.constructor.sendToGlpiSuccess.replace('{id}', String(res.ticket_id)),
-      });
+        setGlpiResult(res);
+        setMessage({
+          type: 'success',
+          text: t.constructor.sendToGlpiSuccess.replace('{id}', String(res.ticket_id)),
+        });
+      } else {
+        const res = await api.submitBatchToGlpi({
+          items: employees.map(e => ({
+            full_name: e.fullName.trim(),
+            position: e.position.trim(),
+            department_name: e.departmentName.trim() || undefined,
+          })),
+          background_image: backgroundImage !== '/default_badge_bg.png' ? backgroundImage : undefined,
+          layout_config: layoutConfig,
+          safety_codes: safetyCodes,
+        });
+
+        setGlpiResult({
+          success: res.success,
+          ticket_id: res.ticket_id || 0,
+          ticket_url: res.ticket_url || '',
+          requester: res.requester,
+          machine: res.machine,
+          room: res.room,
+          message: res.message,
+        });
+        setMessage({
+          type: 'success',
+          text: t.constructor.sendBatchToGlpiSuccess
+            .replace('{id}', String(res.ticket_id))
+            .replace('{count}', String(res.count)),
+        });
+      }
       onBadgeCreated();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || t.common.error });
@@ -255,9 +405,15 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
   };
 
   const handleReset = () => {
-    setFullName('');
-    setPosition('');
-    setDepartmentName('');
+    setEmployees([
+      {
+        id: 'emp-1',
+        fullName: '',
+        position: '',
+        departmentName: '',
+      },
+    ]);
+    setActivePreviewIndex(0);
     setMessage(null);
     setGlpiResult(null);
   };
@@ -334,28 +490,90 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
               </button>
             </div>
 
-            {/* Presets */}
-            <div className="mb-4">
-              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                {t.constructor.presetsLabel}
+            {/* Batch Count Selector */}
+            <div className="mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                  <Users className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>{t.constructor.batchCountLabel}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddEmployee}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold rounded-lg transition shadow-2xs cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>{t.constructor.addEmployeeBtn}</span>
+                </button>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {PRESETS.map((p, idx) => (
+              <div className="flex items-center gap-1.5">
+                {[1, 2, 3, 4, 5].map(n => (
                   <button
-                    key={idx}
+                    key={n}
                     type="button"
-                    onClick={() => {
-                      setFullName(p.name);
-                      setPosition(p.position);
-                      setDepartmentName(p.department);
-                    }}
-                    className="px-2.5 py-1 text-xs bg-slate-50 hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 rounded-lg border border-slate-200 hover:border-emerald-200 transition cursor-pointer"
+                    onClick={() => handleSetCount(n)}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition cursor-pointer ${
+                      employees.length === n
+                        ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
                   >
-                    {p.name.split(' ')[0]} ({p.position.split(' ')[0]})
+                    {n}
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Common Department for Batch */}
+            {employees.length > 1 && (
+              <div className="mb-4 p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl">
+                <label className="block text-[11px] font-bold text-emerald-900 mb-1">
+                  {t.constructor.commonDepartmentLabel}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    list="departments-list"
+                    value={commonDept}
+                    onChange={e => setCommonDept(e.target.value)}
+                    placeholder={t.constructor.departmentPlaceholder}
+                    className="flex-1 px-2.5 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyCommonDept}
+                    className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition shadow-2xs whitespace-nowrap cursor-pointer"
+                  >
+                    {t.constructor.applyCommonDept}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Presets (Single Employee mode) */}
+            {employees.length === 1 && (
+              <div className="mb-4">
+                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                  {t.constructor.presetsLabel}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESETS.map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        updateEmployeeField(0, 'fullName', p.name);
+                        updateEmployeeField(0, 'position', p.position);
+                        updateEmployeeField(0, 'departmentName', p.department);
+                      }}
+                      className="px-2.5 py-1 text-xs bg-slate-50 hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 rounded-lg border border-slate-200 hover:border-emerald-200 transition cursor-pointer"
+                    >
+                      {p.name.split(' ')[0]} ({p.position.split(' ')[0]})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Kazakh Glyphs Bar */}
             <div className="mb-4 bg-slate-50 p-2 rounded-xl border border-slate-100">
@@ -376,61 +594,162 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
               </div>
             </div>
 
-            {/* Inputs */}
-            <div className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  {t.constructor.fullNameLabel} <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onFocus={() => (activeInputRef.current = 'name')}
-                  onChange={e => setFullName(e.target.value)}
-                  placeholder={t.constructor.fullNamePlaceholder}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
-                />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  {t.constructor.fullNameHelp}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  {t.constructor.positionLabel} <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={position}
-                  onFocus={() => (activeInputRef.current = 'position')}
-                  onChange={e => setPosition(e.target.value)}
-                  placeholder={t.constructor.positionPlaceholder}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  {t.constructor.departmentLabel}
-                </label>
-                <div className="relative">
+            {/* Employee Form Inputs */}
+            {employees.length === 1 ? (
+              <div className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    {t.constructor.fullNameLabel} <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="text"
-                    list="departments-list"
-                    value={departmentName}
-                    onFocus={() => (activeInputRef.current = 'dept')}
-                    onChange={e => setDepartmentName(e.target.value)}
-                    placeholder={t.constructor.departmentPlaceholder}
+                    value={employees[0].fullName}
+                    onFocus={() => {
+                      activeInputRef.current = { index: 0, field: 'name' };
+                      setActivePreviewIndex(0);
+                    }}
+                    onChange={e => updateEmployeeField(0, 'fullName', e.target.value)}
+                    placeholder={t.constructor.fullNamePlaceholder}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
                   />
-                  <datalist id="departments-list">
-                    {departments.map(d => (
-                      <option key={d.id} value={d.name} />
-                    ))}
-                  </datalist>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    {t.constructor.fullNameHelp}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    {t.constructor.positionLabel} <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={employees[0].position}
+                    onFocus={() => {
+                      activeInputRef.current = { index: 0, field: 'position' };
+                      setActivePreviewIndex(0);
+                    }}
+                    onChange={e => updateEmployeeField(0, 'position', e.target.value)}
+                    placeholder={t.constructor.positionPlaceholder}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    {t.constructor.departmentLabel}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      list="departments-list"
+                      value={employees[0].departmentName}
+                      onFocus={() => {
+                        activeInputRef.current = { index: 0, field: 'dept' };
+                        setActivePreviewIndex(0);
+                      }}
+                      onChange={e => updateEmployeeField(0, 'departmentName', e.target.value)}
+                      placeholder={t.constructor.departmentPlaceholder}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
+                    />
+                    <datalist id="departments-list">
+                      {departments.map(d => (
+                        <option key={d.id} value={d.name} />
+                      ))}
+                    </datalist>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3.5 max-h-[460px] overflow-y-auto pr-1">
+                {employees.map((emp, idx) => (
+                  <div
+                    key={emp.id}
+                    onClick={() => setActivePreviewIndex(idx)}
+                    className={`p-3.5 rounded-xl border transition cursor-pointer ${
+                      activePreviewIndex === idx
+                        ? 'bg-emerald-50/50 border-emerald-400 ring-2 ring-emerald-600/20'
+                        : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-200/80">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-emerald-700 text-white flex items-center justify-center text-[10px] font-bold">
+                          {idx + 1}
+                        </span>
+                        {t.constructor.employeeNumber.replace('{n}', String(idx + 1))}
+                      </span>
+                      {employees.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleRemoveEmployee(idx);
+                          }}
+                          className="text-slate-400 hover:text-rose-600 p-1 rounded transition cursor-pointer"
+                          title={t.constructor.removeEmployeeBtn}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-2.5">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
+                          {t.constructor.fullNameLabel} <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={emp.fullName}
+                          onFocus={() => {
+                            activeInputRef.current = { index: idx, field: 'name' };
+                            setActivePreviewIndex(idx);
+                          }}
+                          onChange={e => updateEmployeeField(idx, 'fullName', e.target.value)}
+                          placeholder={t.constructor.fullNamePlaceholder}
+                          className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
+                            {t.constructor.positionLabel} <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={emp.position}
+                            onFocus={() => {
+                              activeInputRef.current = { index: idx, field: 'position' };
+                              setActivePreviewIndex(idx);
+                            }}
+                            onChange={e => updateEmployeeField(idx, 'position', e.target.value)}
+                            placeholder={t.constructor.positionPlaceholder}
+                            className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
+                            {t.constructor.departmentLabel}
+                          </label>
+                          <input
+                            type="text"
+                            list="departments-list"
+                            value={emp.departmentName}
+                            onFocus={() => {
+                              activeInputRef.current = { index: idx, field: 'dept' };
+                              setActivePreviewIndex(idx);
+                            }}
+                            onChange={e => updateEmployeeField(idx, 'departmentName', e.target.value)}
+                            placeholder={t.constructor.departmentPlaceholder}
+                            className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -844,7 +1163,9 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
             ) : (
               <>
                 <Download className="w-4 h-4" />
-                {t.constructor.submitBtn}
+                {employees.length === 1
+                  ? t.constructor.submitBtn
+                  : t.constructor.submitBatchBtn.replace('{count}', String(employees.length))}
               </>
             )}
           </button>
@@ -860,7 +1181,9 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
             ) : (
               <>
                 <Send className="w-4 h-4 text-emerald-400" />
-                {t.constructor.sendToGlpiBtn}
+                {employees.length === 1
+                  ? t.constructor.sendToGlpiBtn
+                  : t.constructor.sendBatchToGlpiBtn.replace('{count}', String(employees.length))}
               </>
             )}
           </button>
@@ -897,7 +1220,7 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
       {/* Live Preview Column (7 cols) */}
       <div className="lg:col-span-7 bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col min-h-[500px]">
         {/* Preview Header & Tabs */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100 mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100 mb-4">
           <div className="flex items-center gap-2">
             <Eye className="w-4 h-4 text-emerald-700" />
             <h3 className="text-sm font-bold text-slate-800">{t.preview.title}</h3>
@@ -944,6 +1267,34 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
           </div>
         </div>
 
+        {/* Multi-employee preview switcher */}
+        {employees.length > 1 && (
+          <div className="flex items-center gap-2 pb-3 mb-4 border-b border-slate-100 overflow-x-auto">
+            <span className="text-xs font-semibold text-slate-500 shrink-0">
+              {t.constructor.activePreviewEmployee}
+            </span>
+            <div className="flex items-center gap-1.5">
+              {employees.map((emp, i) => (
+                <button
+                  key={emp.id}
+                  type="button"
+                  onClick={() => setActivePreviewIndex(i)}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition cursor-pointer whitespace-nowrap ${
+                    activePreviewIndex === i
+                      ? 'bg-emerald-700 text-white border-emerald-700 shadow-2xs'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  #{i + 1} {emp.fullName ? emp.fullName.split(' ')[0] : `Сотрудник ${i + 1}`}
+                </button>
+              ))}
+            </div>
+            <span className="ml-auto text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 shrink-0">
+              📄 {t.constructor.a4SheetsEstimate.replace('{sheets}', String(Math.ceil(employees.length / 4)))}
+            </span>
+          </div>
+        )}
+
         {/* Zoom controls */}
         <div className="flex items-center justify-end gap-2 mb-4">
           <span className="text-xs text-slate-400 font-medium">{t.preview.scale}</span>
@@ -978,9 +1329,9 @@ export const BadgeConstructor: React.FC<BadgeConstructorProps> = ({
         {/* Visual Badge Canvas */}
         <div className="flex-1 bg-slate-100/70 border border-dashed border-slate-200 rounded-xl p-8 flex items-center justify-center overflow-auto min-h-[320px]">
           <BadgeVisual
-            fullName={fullName}
-            position={position}
-            departmentName={departmentName}
+            fullName={activeEmp.fullName}
+            position={activeEmp.position}
+            departmentName={activeEmp.departmentName}
             side={side}
             scale={scale}
             backgroundImage={backgroundImage}

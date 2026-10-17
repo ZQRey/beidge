@@ -4,7 +4,10 @@ import type {
   Badge,
   BadgePreviewRequest,
   BatchPrintRequest,
-  BatchImportResult
+  BatchImportResult,
+  BatchBadgeCreateRequest,
+  BatchBadgeCreateResponse,
+  BatchSubmitToGlpiResponse
 } from '../types';
 
 const API_BASE = '/api';
@@ -226,6 +229,54 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || 'Ошибка отправки заявки в GLPI');
+    }
+    return res.json();
+  },
+
+  async createBatchBadges(data: BatchBadgeCreateRequest): Promise<BatchBadgeCreateResponse> {
+    const res = await fetch(`${API_BASE}/badges/create-batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Ошибка генерации пакета бейджей');
+    }
+    return res.json();
+  },
+
+  async downloadBatchSheet(batchId: string, filename = 'hospital_badges_sheet_A4.pdf') {
+    const res = await fetch(`${API_BASE}/badges/batch/${batchId}/download`);
+    if (!res.ok) throw new Error('Ошибка скачивания листа бейджей');
+    const rawBlob = await res.blob();
+    const blob = new Blob([rawBlob], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    let finalName = filename || 'hospital_badges_sheet_A4.pdf';
+    if (!finalName.toLowerCase().endsWith('.pdf')) {
+      finalName += '.pdf';
+    }
+    a.download = finalName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+    }, 30000);
+  },
+
+  async submitBatchToGlpi(data: BatchBadgeCreateRequest): Promise<BatchSubmitToGlpiResponse> {
+    const res = await fetch(`${API_BASE}/badges/submit-batch-to-glpi`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Ошибка отправки групповой заявки в GLPI');
     }
     return res.json();
   },

@@ -21,7 +21,11 @@ from app.schemas.badge import (
     BadgePreviewRequest,
     BadgePreviewResponse,
     BatchPrintRequest,
-    SubmitToGlpiResponse
+    SubmitToGlpiResponse,
+    BatchBadgeItem,
+    BatchBadgeCreateRequest,
+    BatchBadgeCreateResponse,
+    BatchSubmitToGlpiResponse
 )
 from app.services.generator import prepare_employee_render_data, render_html_template
 from app.services.pdf_renderer import generate_badge_pdf, generate_sheet_a4_pdf
@@ -406,5 +410,200 @@ async def submit_to_glpi(
         machine=res.get("machine"),
         room=res.get("room"),
         message=res.get("message", "Заявка успешно создана")
+    )
+
+@router.post("/create-batch", response_model=BatchBadgeCreateResponse)
+async def create_batch_badges(
+    req: BatchBadgeCreateRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Accepts 1 to 20 employees, deduplicates them in DB, creates badges,
+    generates a unified printable A4 sheet PDF with all badges, and returns the batch info.
+    """
+    if not req.items:
+        raise HTTPException(status_code=400, detail="Список сотрудников не может быть пустым")
+
+    user_context = await resolve_current_user_context(request, db)
+    can_edit = user_context.get("can_edit_design", False)
+
+    bg_img = req.background_image if can_edit else "/default_badge_bg.png"
+    layout_cfg = req.layout_config.model_dump() if (can_edit and req.layout_config) else None
+    safety_cfg = req.safety_codes.model_dump() if (can_edit and req.safety_codes) else None
+
+    batch_id = str(uuid.uuid4())
+    sheet_filename = f"sheet_{batch_id}.pdf"
+    sheet_path = settings.STORAGE_DIR / "pdfs" / sheet_filename
+
+    badge_ids = []
+    badges_render_data = []
+
+    for item in req.items:
+        clean_name = item.full_name.strip()
+        clean_pos = item.position.strip()
+        if not clean_name or not clean_pos:
+            continue
+
+        dept_id = None
+        dept_name = None
+        if item.department_name:
+            dept_name = item.department_name.strip()
+            d_res = await db.execute(select(Department).where(Department.name == dept_name))
+            dept = d_res.scalar_one_or_none()
+            if not dept:
+                dept = Department(name=dept_name)
+                db.add(dept)
+                await db.flush()
+            dept_id = dept.id
+
+        # Deduplicate employee
+        e_stmt = select(Employee).where(
+            func.lower(Employee.full_name) == clean_name.lower(),
+            func.lower(Employee.position) == clean_pos.lower()
+        )
+        existing_emp = (await db.execute(e_stmt)).scalars().first()
+        if existing_emp:
+            emp = existing_emp
+            if dept_id and emp.department_id != dept_id:
+                emp.department_id = dept_id
+        else:
+            emp = Employee(
+                full_name=clean_name,
+                position=clean_pos,
+                department_id=dept_id
+            )
+            db.add(emp)
+            await db.flush()
+
+        # Generate individual badge PDF
+        badge_id = str(uuid.uuid4())
+        indiv_pdf_path = settings.STORAGE_DIR / "pdfs" / f"badge_{badge_id}.pdf"
+        generate_badge_pdf(
+            {
+                "full_name": clean_name,
+                "position": clean_pos,
+                "department_name": dept_name,
+                "background_image": bg_img,
+                "layout_config": layout_cfg,
+                "safety_codes": safety_cfg
+            },
+            str(indiv_pdf_path),
+            mode="folded"
+        )
+
+        badge = Badge(
+            id=badge_id,
+            employee_id=emp.id,
+            file_pdf_path=str(indiv_pdf_path),
+            status="active"
+        )
+        db.add(badge)
+        badge_ids.append(badge_id)
+
+        badges_render_data.append({
+            "id": badge_id,
+            "full_name": clean_name,
+            "position": clean_pos,
+            "department_name": dept_name,
+            "background_image": bg_img,
+            "layout_config": layout_cfg,
+            "safety_codes": safety_cfg
+        })
+
+    if not badge_ids:
+        raise HTTPException(status_code=400, detail="Не указано ни одного корректного сотрудника")
+
+    await db.commit()
+
+    # Generate unified A4 sheet
+    generate_sheet_a4_pdf(
+        badges_render_data,
+        str(sheet_path),
+        include_crop_marks=True
+    )
+
+    return BatchBadgeCreateResponse(
+        batch_id=batch_id,
+        badge_ids=badge_ids,
+        download_url=f"/api/badges/batch/{batch_id}/download",
+        count=len(badge_ids)
+    )
+
+@router.get("/batch/{batch_id}/download")
+async def download_batch_sheet(batch_id: str):
+    """Downloads the unified A4 sheet PDF for a batch of badges."""
+    sheet_filename = f"sheet_{batch_id}.pdf"
+    sheet_path = settings.STORAGE_DIR / "pdfs" / sheet_filename
+
+    if not sheet_path.exists():
+        raise HTTPException(status_code=404, detail="Файл листа бейджей не найден")
+
+    download_name = f"hospital_badges_sheet_{batch_id[:8]}.pdf"
+    return FileResponse(
+        str(sheet_path),
+        media_type="application/pdf",
+        filename=download_name,
+        headers={
+            "Content-Disposition": f'attachment; filename="{download_name}"'
+        }
+    )
+
+@router.post("/submit-batch-to-glpi", response_model=BatchSubmitToGlpiResponse)
+async def submit_batch_to_glpi(
+    req: BatchBadgeCreateRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Creates badges for the batch, generates the unified A4 PDF sheet,
+    resolves user info, and creates a single consolidated GLPI ticket with the PDF attached.
+    """
+    # 1. Create batch locally and generate sheet PDF
+    batch_res = await create_batch_badges(req, request, db)
+
+    # 2. Resolve domain user context
+    client_info = await resolve_current_user_context(request, db)
+
+    # 3. Locate generated sheet PDF
+    sheet_path = settings.STORAGE_DIR / "pdfs" / f"sheet_{batch_res.batch_id}.pdf"
+    if not sheet_path.exists():
+        raise HTTPException(status_code=500, detail="Файл листа бейджей не найден для прикрепления к заявке")
+
+    # Determine primary department
+    primary_dept = None
+    for item in req.items:
+        if item.department_name and item.department_name.strip():
+            primary_dept = item.department_name.strip()
+            break
+
+    items_dicts = [
+        {
+            "full_name": it.full_name,
+            "position": it.position,
+            "department_name": it.department_name
+        }
+        for it in req.items
+    ]
+
+    res = await glpi_client.create_batch_badge_ticket(
+        items=items_dicts,
+        primary_department=primary_dept,
+        pdf_path=str(sheet_path),
+        client_info=client_info
+    )
+
+    if not res.get("success"):
+        raise HTTPException(status_code=502, detail=res.get("error", "Ошибка создания групповой заявки в GLPI"))
+
+    return BatchSubmitToGlpiResponse(
+        success=True,
+        ticket_id=res.get("ticket_id"),
+        ticket_url=res.get("ticket_url"),
+        requester=res.get("requester"),
+        machine=res.get("machine"),
+        room=res.get("room"),
+        count=res.get("count", len(req.items)),
+        message=res.get("message", f"Заявка успешно создана на {len(req.items)} бейджей")
     )
 

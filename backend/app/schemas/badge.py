@@ -110,3 +110,32 @@ class SubmitToGlpiResponse(BaseModel):
     room: str | None = None
     message: str
     error: str | None = None
+
+class BatchBadgeItem(BaseModel):
+    full_name: str
+    position: str
+    department_name: str | None = None
+
+class BatchBadgeCreateRequest(BaseModel):
+    items: list[BatchBadgeItem]
+    background_image: str | None = None
+    layout_config: LayoutConfig | None = None
+    safety_codes: SafetyCodesConfig | None = None
+
+class BatchBadgeCreateResponse(BaseModel):
+    batch_id: str
+    badge_ids: list[str]
+    download_url: str
+    count: int
+    badges: list[BadgeOut] = []
+
+class BatchSubmitToGlpiResponse(BaseModel):
+    success: bool
+    ticket_id: int | None = None
+    ticket_url: str | None = None
+    requester: str | None = None
+    machine: str | None = None
+    room: str | None = None
+    count: int = 0
+    message: str
+    error: str | None = None
